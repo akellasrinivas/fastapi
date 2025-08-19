@@ -14,7 +14,7 @@ app = FastAPI()
 # Download CSV from Google Drive (only if not already downloaded)
 # --------------------------------------------------------------------
 CSV_FILE = "Indian_GWL_Data.csv"
-CSV_URL = "https://drive.google.com/uc?export=download&id=13ofBWqDbd6_cNbnk_sHl5YK6e1NZtgFb"
+CSV_URL = "https://drive.google.com/uc?export=download&id=13ofBWqDbd6_cNbnk_sHl5YK6e1NZtgFb&confirm=t"
 
 def download_csv():
     if not os.path.exists(CSV_FILE):
@@ -93,4 +93,5 @@ def get_nearest_station(req: CoordinatesRequest) -> Any:
         })
 
     return response
+
 
