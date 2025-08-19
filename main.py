@@ -11,14 +11,14 @@ from haversine import haversine
 app = FastAPI()
 
 # --------------------------------------------------------------------
-# Download CSV from Google Drive (only if not already downloaded)
+# Download CSV from Dropbox/Google-Drive link (if not exists)
 # --------------------------------------------------------------------
 CSV_FILE = "Indian_GWL_Data.csv"
 CSV_URL = "https://www.dropbox.com/scl/fi/3arogeysxlomwr2ofof68/Indian_GWL_Data.csv?rlkey=qbc9sfx7wyxm3mjod6zd30be8&st=ldfhowsc&dl=1"
 
 def download_csv():
     if not os.path.exists(CSV_FILE):
-        print("Downloading CSV from Google Drive...")
+        print("Downloading CSV...")
         r = requests.get(CSV_URL)
         r.raise_for_status()
         with open(CSV_FILE, "wb") as f:
@@ -28,7 +28,7 @@ def download_csv():
 download_csv()
 
 # --------------------------------------------------------------------
-# Load CSV once (after download)
+# Load CSV (once)
 # --------------------------------------------------------------------
 df = pd.read_csv(CSV_FILE)
 df["date"] = pd.to_datetime(df["date"], errors="coerce")
@@ -57,31 +57,36 @@ def get_nearest_station(req: CoordinatesRequest) -> Any:
 
     centroid = (poly.centroid.y, poly.centroid.x)
 
-    # Find nearest station
+    # -------------------------------------------------------------
+    # Find nearest station (use unique lat/lon values only)
+    # -------------------------------------------------------------
+    unique_stations = df.drop_duplicates(subset=["latitude", "longitude"])
+
     min_dist = float("inf")
-    nearest_row = None
-    for _, row in df.iterrows():
+    nearest_station = None
+    for _, row in unique_stations.iterrows():
         dist = haversine(centroid, (row.latitude, row.longitude))
         if dist < min_dist:
             min_dist = dist
-            nearest_row = row
+            nearest_station = row
 
-    if nearest_row is None:
+    if nearest_station is None:
         raise HTTPException(status_code=404, detail="No station found")
 
-    # Filter station data
+    # -------------------------------------------------------------
+    # Retrieve all data rows for that station (all dates)
+    # -------------------------------------------------------------
     station_data = (
-        df[(df["latitude"] == nearest_row["latitude"]) &
-           (df["longitude"] == nearest_row["longitude"])]
+        df[(df["latitude"] == nearest_station["latitude"]) &
+           (df["longitude"] == nearest_station["longitude"])]
         .sort_values("date")
         .drop(columns=["id", "source", "year"], errors="ignore")
     )
 
-    # Build JSON response
     response = {
-        "station_name": nearest_row["station_name"],
-        "district_name": nearest_row["district_name"],
-        "state_name": nearest_row["state_name"],
+        "station_name": nearest_station["station_name"],
+        "district_name": nearest_station["district_name"],
+        "state_name": nearest_station["state_name"],
         "distance_km": round(min_dist, 2),
         "data": []
     }
@@ -93,6 +98,5 @@ def get_nearest_station(req: CoordinatesRequest) -> Any:
         })
 
     return response
-
 
 
